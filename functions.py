@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import randint
 import time
-import datetime
+import datetime as dt
 
 import yfinance as yf
 import talib
@@ -257,7 +257,6 @@ def mg_ind(data):
 
   return data
 
-
 """### Tratamento"""
 def process(data):
   data.dropna(inplace=True)
@@ -325,15 +324,15 @@ def input_ac():
     start = input("Início: ")
     return name, start
 
-def data_inter(intervalo):
+def data_inter(intervalo, n = 5000, ativo = 'PETR3'):
 
     tv = TvDatafeed()
 
     ativos_org_var = {}
-    ativos_org_var['PETR3'] = 'BMFBOVESPA'
+    ativos_org_var[ativo] = 'BMFBOVESPA'
 
     for symb_dict in ativos_org_var.items():
-        data = tv.get_hist(*symb_dict, n_bars=5000,
+        data = tv.get_hist(*symb_dict, n_bars = n,
                         interval = intervalo).reset_index()
 
     data.rename(columns={'open': 'Open', 'high': 'High', 'low': 'Low',
@@ -416,14 +415,17 @@ def best_hp(x_train, y_train):
     return rnd_search.best_params_
 
 def recursive_test(features):
-    print(f"{yellow}Horário de Início{reset}: {red}{datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S')}{reset}")
-    logging.info(f"Horário de Início: {datetime.datetime.now().strftime('%d-%m-%Y %H:%M:%S')}")
+    print(f"{yellow}Horário de Início{reset}: {red}{dt.datetime.now().strftime('%d-%m-%Y %H:%M:%S')}{reset}")
+    logging.info(f"Horário de Início: {dt.datetime.now().strftime('%d-%m-%Y %H:%M:%S')}")
     start_time = time.time()
 
     results_f = pd.DataFrame(columns=['Selected_Features', 'Accuracy', 'Normalize','Intervalo', 'HyperP', 'Model'])
     results_f.to_csv('Resultados/Resultado.csv', index=False)
     feature_combinations = []
     n_total = 7814
+
+    modelos_salvos = pd.DataFrame(columns=['Selected_Features', 'Accuracy', 'Normalize','Intervalo', 'HyperP', 'Model_Name'])
+    modelos_salvos.to_csv('Resultados/Modelos_Salvos/Modelos_Salvos.csv', index=False)
 
     for num_features in range(4, len(features)+1):
         feature_combinations.extend(combinations(features, num_features))
@@ -512,18 +514,35 @@ def recursive_test(features):
 
             results = pd.DataFrame(results)
             inter = pd.concat([inter, results]).reset_index(drop=True)
+            inter['Accuracy'] = inter['Accuracy'].astype(float)
+            inter = inter[inter['Accuracy'] == inter['Accuracy'].max()]
 
+            results_f = results_f.drop('Model', axis=1)
             results_f = pd.concat([results_f, results]).reset_index(drop=True)
             results_f.to_csv('Resultados/Resultado.csv', index=False)
 
         results_f = pd.read_csv('Resultados/Resultado.csv')
+        modelos_salvos = pd.read_csv('Resultados/Modelos_Salvos/Modelos_Salvos.csv')
 
-        inter['Accuracy'] = inter['Accuracy'].astype(float)
+        """
         best_model = inter[inter['Accuracy'] == inter['Accuracy'].max()]['Model'].values[0]
         ac_best_model = inter[inter['Accuracy'] == inter['Accuracy'].max()]['Accuracy'].values[0]
 
-        results_f = results_f.drop('Model', axis=1)
+        modelos_salvos = pd.concat([modelos_salvos, inter[inter['Accuracy'] == inter['Accuracy'].max()]]).reset_index(drop=True)
+        modelos_salvos.loc[modelos_salvos.index[-1], 'Model_Name'] = f'ml_rf_{intervalo}_ac_{ac_best_model:.2f}'
+        """
+
+        best_model = inter['Model'].values[0]
+        ac_best_model = inter['Accuracy'].values[0]
+
+        modelos_salvos = pd.concat([modelos_salvos, inter]).reset_index(drop=True)
+        modelos_salvos.loc[modelos_salvos.index[-1], 'Model_Name'] = f'ml_rf_{intervalo}_ac_{ac_best_model:.2f}'
+
+        modelos_salvos = modelos_salvos.drop('Model', axis=1)
+
         results_f.to_csv('Resultados/Resultado.csv', index=False)
+        modelos_salvos.to_csv('Resultados/Modelos_Salvos/Modelos_Salvos.csv', index=False)
+
 
         # Finaliza o processamento do intervalo
 
@@ -545,8 +564,8 @@ def recursive_test(features):
         print(f"Tempo de execução: {red}{((end_int - start_int)/60):.2f} minutos{reset}")
         logging.info(f"Tempo de execução: {((end_int - start_int)/60):.2f} minutos")
         
-        print(f'Finalizao às: {red}{datetime.datetime.now().strftime("%H:%M:%S")}{reset}')
-        logging.info(f'Finalizao às:{datetime.datetime.now().strftime("%H:%M:%S")}')
+        print(f'Finalizao às: {red}{dt.datetime.now().strftime("%H:%M:%S")}{reset}')
+        logging.info(f'Finalizao às:{dt.datetime.now().strftime("%H:%M:%S")}')
 
         print("")
         logging.info("")
@@ -558,3 +577,28 @@ def recursive_test(features):
     logging.info(f"Tempo total de execução: {execution_time:.2f} minutos")
 
     return results_f
+
+def pred_ac(model_name, ativo = 'PETR3'):
+    intervals = [Interval.in_1_minute, Interval.in_3_minute, Interval.in_5_minute, Interval.in_15_minute, Interval.in_30_minute, Interval.in_45_minute
+            ,Interval.in_1_hour, Interval.in_2_hour, Interval.in_3_hour, Interval.in_daily, Interval.in_weekly, Interval.in_monthly]
+
+    # Abre o modelo salvo
+    with open(f'Resultados/Modelos_Salvos/{model_name}.pkl', 'rb') as file:
+        model = pickle.load(file)
+
+    # Abre as informações dos modelos salvos
+    modelos_salvos = pd.read_csv('Resultados/Modelos_Salvos/Modelos_Salvos.csv')
+    features = (modelos_salvos.loc[(modelos_salvos['Model_Name'] == model_name), 'Selected_Features'].values[0]).split(', ')
+    intervalo = modelos_salvos.loc[(modelos_salvos['Model_Name'] == model_name), 'Intervalo'].values[0]
+
+    # Garante que intervalo não será uma string
+    for i in list(intervals):
+        if str(i) in str(intervalo):
+            intervalo = i
+
+    # Processa os dados para o intervalo requerido
+    data = data_inter(intervalo, 500, ativo)
+
+    # Calcula a ultima tendência com base nas features requeridas
+    trend = model.predict(data[features].iloc[-1].values.reshape(1, -1))
+    return trend[0]
