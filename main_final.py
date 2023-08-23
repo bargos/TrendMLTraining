@@ -22,6 +22,6 @@ white = '\033[37m'       # Texto em branco
 # Aplica o Modelo
 
 model_name = 'ml_rf_Interval.in_45_minute_ac_55.39'
-ativo = 'ITUB4'
+ativo = 'PETR3'
 
 print(pred_ac(model_name, ativo))
