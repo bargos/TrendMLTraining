@@ -14,14 +14,14 @@ white = '\033[37m'       # Texto em branco
 # Treina um modelo para calcular tendência com base nos indicadores
 
 # Treina milhares de modelos variando seus atributos
-features=['Volume', 'Open', 'rsi', 'ema_5_t', 'sma_5_t', 'ema_10_t', 'sma_10_t',
-           'stoc_t', 'bol_t', 'adx_t', 'macd_t', 'macd', 'chai_t']
+#features=['Volume', 'Open', 'rsi', 'ema_5_t', 'sma_5_t', 'ema_10_t', 'sma_10_t',
+#           'stoc_t', 'bol_t', 'adx_t', 'macd_t', 'macd', 'chai_t']
 
-print(recursive_test(features))
+#print(recursive_test(features))
 
 # Aplica o Modelo
 
-#model_name = 'ml_rf_Interval.in_45_minute_ac_52.96'
-#ativo = 'ITUB4'
+model_name = 'ml_rf_Interval.in_45_minute_ac_55.39'
+ativo = 'ITUB4'
 
-#print(pred_ac(model_name, ativo))
+print(pred_ac(model_name, ativo))
